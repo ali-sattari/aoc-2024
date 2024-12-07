@@ -1,6 +1,6 @@
 from typing import List, Tuple
 from pprint import pprint
-from filecmp import dircmp
+from collections import defaultdict
 
 class Solution1:
     def __init__(self, grid: List):
@@ -8,20 +8,27 @@ class Solution1:
         self.log = grid.copy()
         self.height = len(grid)
         self.width = len(grid[0])
-        self.blocks = dict()
+        self.visited = set()
+        self.blocks = set()
         self.guard = '^'
         self.object = '#'
         self.marker = 'X'
         self.blocker = 'O'
+        self.path_marker = {
+            "up": '\u2191',
+            "right": '\u2192',
+            "down": '\u2193',
+            "left": '\u2190',
+        }
 
-    def calculate(self) -> int:
+    def calculate1(self) -> int:
         guard_pos = self.locate_guard()
         direction = "up"
         y, x = guard_pos
 
         while True:
             ny, nx = self.move_in_dir(direction, y, x)
-            self.record_log(direction, y, x)
+            self.record_log(direction, y, x, dir_mark=False)
 
             if self.is_inside_grid(ny, nx):
                 if self.is_object(ny, nx):
@@ -34,22 +41,62 @@ class Solution1:
 
         return self.count_positions()
 
+    def calculate2(self) -> int:
+        self.log = self.grid.copy()
+
+        guard_pos = self.locate_guard()
+        direction = "up"
+        pos = guard_pos
+
+        while True:
+            new_pos = self.move_in_dir(direction, *pos)
+            if self.is_inside_grid(*new_pos) == False:
+                break
+
+            if self.is_object(*new_pos):
+                direction = self.turn(direction)
+                continue
+
+            if(new_pos not in self.blocks and new_pos != guard_pos and  new_pos not in self.visited):
+                foundLoop = self.is_loop(pos, self.turn(direction), new_pos)
+                if foundLoop:
+                    self.blocks.add(new_pos)
+            pos = new_pos
+            self.visited.add(pos)
+
+        return len(self.blocks)
+
+    def is_loop(self, pos: tuple, direction: str, block: tuple) -> bool:
+        trace = defaultdict(list)
+        while True:
+            new_pos = self.move_in_dir(direction, *pos)
+            if self.is_inside_grid(*new_pos) is not True:
+                return False
+            if self.is_object(*new_pos) or new_pos == block:
+                direction = self.turn(direction)
+                continue
+            if new_pos in trace and direction in trace[new_pos]:
+                return True
+
+            pos = new_pos
+            trace[pos].append(direction)
+
     def is_blocked(self, y, x) -> bool:
-        return bool(self.blocks.get((y,x)))
+        return (y,x) in self.blocks
 
     def is_marked(self, y, x) -> bool:
         log = self.log[y][x]
         return log != "."
 
-    def record_log(self, direction, y, x):
-        translate = {
-            "up": '\u2191',
-            "right": '\u2192',
-            "down": '\u2193',
-            "left": '\u2190',
-        }
-        # self.log[y][x] = self.marker
-        self.log[y][x] = translate[direction]
+    def add_blockers(self):
+        for y, x in self.blocks:
+            self.log[y][x] = self.blocker
+
+    def record_log(self, direction, y, x, dir_mark=True):
+        if dir_mark:
+            self.log[y][x] = self.path_marker[direction]
+        else:
+            self.log[y][x] = self.marker
 
     def count_positions(self) -> int:
         c = 0
@@ -117,15 +164,17 @@ def input_to_list(f: str) -> List:
 if __name__ == "__main__":
     #testing with sample inputs
     # test_input = input_to_list("./test-input")
-    # pprint(test_input)
-    # test_answer = 41
+    # test_answer = 6
     # inst = Solution1(test_input)
-    # ans = inst.calculate()
-    # print(inst.height, inst.width)
+    # ans = inst.calculate2()
     # print(ans, ans == test_answer)
-    # pprint(inst.log)
+    # pprint(inst.blocks)
 
     res = Solution1(input_to_list("./input"))
-    ans = res.calculate()
+    ans = res.calculate1()
     print("Part1:", ans)
-    pprint(res.output_path())
+    res2 = Solution1(input_to_list("./input"))
+    ans2 = res2.calculate2()
+    print("Part2:", ans2)
+    # res.add_blockers()
+    # pprint(res.output_path())
