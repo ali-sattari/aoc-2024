@@ -16,7 +16,7 @@ class Solution:
         self.visited = set()
         self.height = len(grid)
         self.width = len(grid[0])
-        self.trailHeads = defaultdict(int)
+        self.trailHeads = defaultdict(list)
         self.score = 0
 
     def calculate1(self) -> int:
@@ -25,18 +25,26 @@ class Solution:
                 if c == 0:
                     head = (y, x)
                     t = self.walkTrail(head, [c])
-                    self.trailHeads[head] += int(t)
-                    # print(head, self.trailHeads[head], t)
+                    self.score += int(t)
+                    # print(head, self.trailHeads[head])
 
-        return self.getScore()
+        return self.score
 
     def calculate2(self) -> int:
-        pass
+        for y, row in enumerate(self.grid):
+            for x, c in enumerate(row):
+                if c == 0:
+                    head = (y, x)
+                    t = self.walkTrail2(head, [c], {head})
+                    self.trailHeads[head].extend(t)
 
-    def getScore(self) -> int:
+        return self.getRating()
+
+    def getRating(self) -> int:
+        t = 0
         for h, s in self.trailHeads.items():
-            self.score += s
-        return self.score
+            t += len(s)
+        return t
 
     def isInGrid(self, point: tuple) -> bool:
         return self.height > point[0] >= 0 and self.width > point[1] >= 0
@@ -76,6 +84,21 @@ class Solution:
 
         return trails
 
+    def walkTrail2(self, start: tuple, path: list[int], visited: set[tuple]) -> List:
+        if self.getCell(start) == 9:
+            return [visited]
+
+        trails = []
+        nbs = self.getAdjacent(start)
+        l = path[-1]
+        for n in nbs:
+            c = self.getCell(n)
+            if n not in visited and c - l == 1:
+                # print('\tfor head', start, 'got', n, 'in nbs', nbs,  path)
+                trails.extend(self.walkTrail2(n, path + [c], visited | {n}))
+
+        return trails
+
 def input_to_list(f: str) -> List:
     stuff = []
     with open(file=f, mode='r') as file:
@@ -87,21 +110,21 @@ def input_to_list(f: str) -> List:
 
 
 if __name__ == "__main__":
-    test_input = input_to_list("./test-input")
-    test_answer1 = 36
-    test_answer2 = 81
-    inst = Solution(test_input)
-    ans1 = inst.calculate1()
-    ans2 = inst.calculate2()
-    print("Part1:", ans1, ans1 == test_answer1)
-    print("Part2:", ans2, ans2 == test_answer2)
-
-    # input = input_to_list("./input")
-    # inst = Solution(input)
+    # test_input = input_to_list("./test-input")
+    # test_answer1 = 36
+    # test_answer2 = 81
+    # inst = Solution(test_input)
     # ans1 = inst.calculate1()
     # ans2 = inst.calculate2()
-    # print("Part 1:", ans1)
-    # print("Part 2:", ans2)
+    # print("Part1:", ans1, ans1 == test_answer1)
+    # print("Part2:", ans2, ans2 == test_answer2)
+
+    input = input_to_list("./input")
+    inst = Solution(input)
+    ans1 = inst.calculate1()
+    ans2 = inst.calculate2()
+    print("Part 1:", ans1)
+    print("Part 2:", ans2)
 
     # p1: 461
-    # p2:
+    # p2: 875
