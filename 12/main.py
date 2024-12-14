@@ -49,21 +49,29 @@ class Solution:
                 m[Pos(y,x)] = p
         return m
 
-    def calculate1_dfs(self) -> int:
-        total = 0
+    def calculate1_dfs(self) -> tuple[int, int]:
+        total1 = 0
+        total2 = 0
 
         cells = set(self.grid.keys())
         while cells:
             pos = cells.pop()
             plant = self.grid[pos]
             region = self.find_region(pos)
-            price = len(region) * self.perimeter(region)
-            print(f"Plant {plant} with region of {len(region)} = {price}", "\t"*3, pos)
+
+            perim = self.perimeter(region)
+            sides = self.find_edges(region)
+
+            price1 = len(region) * perim
+            price2 = len(region) * sides
+            print(plant, sides, len(region))
+            print(f"Plant {plant} with region of {len(region)} = {price1} for perimeter, or {price2} for sides", "\t"*3, pos)
 
             cells -= region
-            total += price
+            total1 += price1
+            total2 += price2
 
-        return total
+        return total1, total2
 
     def find_region(self, pos: Pos) -> set[Pos]:
         q: List[Pos] = [pos]
@@ -81,6 +89,19 @@ class Solution:
                     region.add(n)
 
         return region
+
+    def find_edges(self, region: set[Pos]) -> int:
+        t = 0
+        for p in region:
+            t += self.is_edge(p)
+        return t
+
+    def is_edge(self, pos: Pos) -> bool:
+        c = 0
+        for n in pos.get_buren():
+            if n.is_inbounds(self.height, self.width) and self.grid[n] == self.grid[pos]:
+                c += 1
+        return c == 2
 
     def perimeter(self, region: set[Pos]) -> int:
         t = 0
@@ -110,8 +131,8 @@ if __name__ == "__main__":
     inst = Solution(test_input)
     ans1 = inst.calculate1_dfs()
     # ans2 = inst.calculate2(7)
-    print("Part1:", ans1, ans1 == test_answer1)
-    # print("Part2:", ans2, ans2 == test_answer1)
+    print("Part1:", ans1[0], ans1[0] == test_answer1)
+    print("Part2:", ans1[1], ans1[1] == test_answer2)
 
     # input = input_to_list("./input")
     # inst = Solution(input)
