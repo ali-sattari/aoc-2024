@@ -73,15 +73,60 @@ class Box(Thing):
         super().__init__(pos, 'O', True)
 
 class WideBox(Thing):
-    def __init__(self, pos: Vector, half):
-        super().__init__(pos, '[]', True)
-        self.other_half = half
+    def __init__(self, pos: Vector, symbol: str, half=None):
+        super().__init__(pos, symbol, True)
+        self.horizontal = (Vector(1, 0), Vector(-1, 0))
+        self.vertical = (Vector(0, 1), Vector(0, -1))
+        self.half = half
 
     def try_moving(self, grid: dict, next: Optional[Vector] = None) -> bool:
-        if self.can_move(grid, next) and self.other_half.can_move(grid, next):
-            self.move(self.position + next, grid)
-            self.other_half.move(self.other_half.position + next, grid)
+        if next in self.horizontal:
+            return self.try_moving_horizontal(grid, next)
+
+        if next in self.vertical:
+            return self.try_moving_vertical(grid, next)
+
+    def try_moving_horizontal(self, grid: dict, next: Optional[Vector] = None) -> bool:
+        dir = "left" if next.x < 0 else "right"
+
+        nbr = grid.get(self.position + next)
+        if nbr and nbr.half == self:
+            nbr = grid.get(nbr.position + next)
+
+        # print(f"moving {self} and {self.half} horizontaly to {next}")
+        if nbr is not None and nbr.is_movable():
+            # print(self, v, f"{nbr}", type(nbr), nbr.movable)
+            if nbr.try_moving(grid, next):
+                self.move_both(next, dir, grid)
+                return True
+
+        if nbr is None:
+            self.move_both(next, dir, grid)
             return True
+
+        return False
+
+    def try_moving_vertical(self, grid: dict, next: Optional[Vector] = None) -> bool:
+        # print(f"moving {self} and {self.half} vertically to {next}")
+        to_check = set([self.position, self.half.position])
+        to_push = {}
+        while len(to_check) > 0:
+            p = to_check.pop()
+            v = p + next
+            nbr = grid.get(v)
+            # print(f"checking {p}: found {nbr} in {v}, more to check {to_check}")
+
+            if type(nbr) == WideBox and nbr.can_move(grid, next):
+                to_check.update([nbr.position, nbr.half.position])
+                to_push[nbr.position] = nbr
+                to_push[nbr.half.position] = nbr.half
+
+        # print(f"boxes to push vertically: {to_push}")
+        ll = list(to_push.keys())
+        while ll:
+            p = ll.pop()
+            b = grid[p]
+            b.move(p + next, grid)
 
         return False
 
@@ -97,11 +142,26 @@ class WideBox(Thing):
 
         return False
 
+    def move_both(self, next: Vector, dir: str, grid:dict):
+        if dir == "left":
+            first, second = (self, self.half) if self.symbol == '[' else (self.half, self)
+
+        if dir == "right":
+            first, second = (self, self.half) if self.symbol == ']' else (self.half, self)
+
+        first.move(first.position + next, grid)
+        second.move(second.position + next, grid)
+
     def move(self, v: Vector, grid:dict):
-        print(f"moving {self} from {self.position} to {v}")
+        # print(f"moving {self} from {self.position} to {v}")
         del grid[self.position]
         grid[v] = self
         self.position = v
+
+    def get_gps(self) -> int:
+        if self.symbol == '[':
+            return self.position.y * 100 + self.position.x
+        return 0
 
 class Wall(Thing):
     def __init__(self, pos: Vector):
@@ -118,7 +178,7 @@ class Solution:
 
         while self.robot.has_move():
             self.robot.try_moving(self.grid)
-            self.render()
+            # self.render()
 
         self.render()
         return self.get_gps_sum()
@@ -126,7 +186,7 @@ class Solution:
     def get_gps_sum(self) -> int:
         total = 0
         for obj in self.grid.values():
-            if isinstance(obj, Box):
+            if type(obj) in (WideBox, Box):
                 total += obj.get_gps()
         return total
 
@@ -134,15 +194,15 @@ class Solution:
         grid = ""
 
         y = 0
+        grid += '+' + ''.join([str(n%10) for n in range(self.room.x)]) + "\n"
         while y < self.room.y:
+            grid += str(y%10)
             x = 0
             while x < self.room.x:
                 p = Vector(x, y)
                 if p in self.grid:
                     obj = self.grid[p]
                     grid += str(obj)
-                    if type(obj) is WideBox:
-                        x += 1
                 else:
                     grid += '.'
                 x += 1
@@ -216,11 +276,11 @@ def input_to_list_wide(f: str):
                             grid[v1] = Wall(v1)
                             grid[v2] = Wall(v2)
                         case 'O':
-                            lh = WideBox(v1, None)
-                            rh = WideBox(v2, lh)
-                            lh.other_half = rh
-                            grid[v1] = lh
-                            grid[v2] = rh
+                            bl = WideBox(v1, '[')
+                            br = WideBox(v2, ']', bl)
+                            bl.half = br
+                            grid[v1] = bl
+                            grid[v2] = br
                         case '@':
                             obj = robot = Robot(v1)
                             grid[v1] = obj
