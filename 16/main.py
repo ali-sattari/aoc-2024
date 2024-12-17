@@ -3,6 +3,7 @@ from pprint import pprint
 from math import floor
 from itertools import repeat
 from collections import defaultdict, namedtuple
+from collections.abc import Callable, Iterable, Iterator
 import time
 import math
 import sys
@@ -22,7 +23,7 @@ class Solution:
         self.paths: List[list[Vector]] = []
         self.initial_dir = Vector(1, 0) #facing right
 
-    def calculate(self) -> int:
+    def calculate(self) -> tuple[int, int]:
         # self.dfs(self.start, [])
         # min_score = math.inf
         # min_path = 0
@@ -37,8 +38,15 @@ class Solution:
         # self.render(path)
 
         score = self.dijkstra()
+        tiles = self.count_tiles()
 
-        return score
+        print(f"Part 1, one of the shortest paths among {len(self.paths)}:")
+        self.render(self.paths[0])
+
+        print(f"Part 2, tiels in all of the best paths:")
+        self.render_tiles(self.paths)
+
+        return score, tiles
 
     def get_score(self, path) -> int:
         score = 0
@@ -50,6 +58,12 @@ class Solution:
                 score += 1000
                 dir = d
         return score
+
+    def count_tiles(self) -> int:
+        tiles = set()
+        for p in self.paths:
+            tiles |= set(p)
+        return len(tiles)
 
     def dfs(self, pos: Vector, path: List[Vector]) -> List[Vector]:
         if pos == self.end:
@@ -65,6 +79,7 @@ class Solution:
     def dijkstra(self) -> float:
         start: Node = (self.start, self.initial_dir)
         costs: dict[Node, float] = {start: 0}
+        paths: dict[Node, list[list]] = {start: [[self.start]]}
         to_do: set[Node] = {start}
 
         while len(to_do):
@@ -77,13 +92,15 @@ class Solution:
                 dir = current[1]
                 c = self.get_cost(current[0], nbr, dir)
                 new_dist = costs[current] + c
-                # print(f"checking {nbr} for {current} with cost of {c} in dir {dir}")
                 n: Node = (nbr, nbr-current[0])
                 if new_dist < costs.get(n, math.inf):
                     costs[n] = new_dist
-                    if n not in to_do:
-                        to_do.add(n)
+                    paths[n] = [path + [nbr] for path in paths[current]]
+                    to_do.add(n)
+                elif new_dist == costs.get(n, math.inf):
+                    paths[n].extend([path + [nbr] for path in paths[current]])
 
+        self.paths = paths[current]
         return costs[current]
 
     def get_cost(self, src, dst, dir: Vector) -> int:
@@ -102,7 +119,13 @@ class Solution:
                 bs.append(t)
         return bs
 
-    def render(self, path, visited=False):
+    def render_tiles(self, paths):
+        t = set()
+        for p in self.paths:
+            t |= set(p)
+        self.render(t)
+
+    def render(self, path):
         grid = ""
 
         y = 0
@@ -123,10 +146,7 @@ class Solution:
                         # grid += self.path[p]
                         grid += colored('+', 'red')
                     case _:
-                        if visited and p in self.visited:
-                            grid += 'x'
-                        else:
-                            grid += '.'
+                        grid += '.'
                 x += 1
             grid += "\n"
             y += 1
@@ -178,15 +198,17 @@ def input_to_list(f: str):
 if __name__ == "__main__":
     # test_input = input_to_list("./test-input")
     # test_answer = 11048
-    # # test_answer2 = 1206
+    # test_answer2 = 64
     # inst = Solution(*test_input)
-    # ans1 = inst.calculate()
-    # print("Part1:", ans1, ans1 == test_answer)
+    # score, tiles = inst.calculate()
+    # print("Part1:", score, score == test_answer)
+    # print("Part2:", tiles, tiles == test_answer2)
 
     input = input_to_list("./input")
     inst = Solution(*input)
-    ans1 = inst.calculate()
-    print("Part 1:", ans1)
+    score, tiles = inst.calculate()
+    print("Part 1:", score)
+    print("Part 2:", tiles)
 
     # p1: 109496
-    # p2:
+    # p2: 551
