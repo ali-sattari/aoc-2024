@@ -1,2 +1,4 @@
 */input*
 */test-input*
+*/__pycache__
+.python-version

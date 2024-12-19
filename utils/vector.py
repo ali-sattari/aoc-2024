@@ -43,7 +43,6 @@ class Vector:
             return Vector(self.x*n, self.y*n)
         raise NotImplementedError('Can only multiply Vector by an integer')
 
-
     def distance_to(self, other):
         return abs(self - other)
 
