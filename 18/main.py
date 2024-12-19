@@ -18,20 +18,26 @@ class Solution:
         self.end = room - Vector(1, 1)
         self.paths: List[list[Vector]] = []
 
-    def calculate(self, falls:int) -> int:
+    def calculate(self, falls:int) -> Tuple[int, Vector]:
         self.blocks = self.filter_bytes(falls)
-        # self.render(list(self.blocks.keys()))
-
-        # score = self.dijkstra()
         score = self.astar()
 
         print(f"Part 1, one of the shortest paths among {len(self.paths)}:")
         self.render(self.paths[0])
-        # for i, p in enumerate(self.paths):
-        #     print(f"Path {i}")
-        #     self.render(p)
 
-        return score
+        blocker: Vector
+        for i in range(falls+1, len(self.bytes)):
+            self.blocks = self.filter_bytes(i)
+            blocker = list(self.blocks.keys())[-1]
+            # print(f"Checking {i} blocks {blocker} ...", end='')
+            res = self.astar()
+            # print(f"aand result is {res}")
+            if res == -1:
+                print(f"Part 2, the one byte too many is the {i}th: {blocker}")
+                self.render(self.paths[0])
+                break
+
+        return score, blocker
 
     def dijkstra(self) -> int:
         costs: dict[Vector, float] = {self.start: 0}
@@ -65,7 +71,8 @@ class Solution:
         while to_do:
             current = min(to_do, key=lambda t: costs[t] + self.cost_heuristic(t))
             if current == self.end:
-                break
+                self.paths = paths[self.end]
+                return int(costs[self.end])
 
             to_do.remove(current)
             for nbr in self.get_buren(current):
@@ -78,8 +85,9 @@ class Solution:
                 elif new_dist == costs.get(nbr, math.inf):
                     paths[nbr].extend([path + [nbr] for path in paths[current]])
 
-        self.paths = paths[self.end]
-        return int(costs[self.end])
+        # If we exit the loop and haven't found the goal, it's unreachable
+        self.paths = paths[current]
+        return -1
 
     def cost_heuristic(self, node: Vector) -> float:
         # Manhattan Distance
@@ -153,18 +161,18 @@ def process_input(f: str):
 if __name__ == "__main__":
     # test_input = process_input("./test-input")
     # test_answer = 22
-    # # test_answer2 = 64
+    # test_answer2 = Vector(6, 1)
     # inst = Solution(test_input, Vector(7, 7))
-    # moves = inst.calculate(12)
+    # moves, blocker = inst.calculate(12)
     # print("Part1:", moves, moves == test_answer)
-    # # print("Part2:", tiles, tiles == test_answer2)
+    # print("Part2:", blocker, blocker == test_answer2)
 
     input = process_input("./input")
     room = Vector(71, 71)
     inst = Solution(input, room)
-    moves = inst.calculate(1024)
+    moves, blocker = inst.calculate(1024)
     print("Part 1:", moves)
-    # print("Part 2:", tiles)
+    print("Part 2:", blocker)
 
     # p1: 232
-    # p2:
+    # p2: 44,64
