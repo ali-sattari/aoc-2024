@@ -1,147 +1,71 @@
 from typing import List, Optional, Tuple, Dict, Literal
 from pprint import pprint
-from collections import Counter
-import math
-from vector import Vector
-from termcolor import colored
+import functools
 
 class Solution:
     def __init__(self, codes: List):
         self.codes = codes
-        self.pads = ['num_pad', 'dir_pad']
-        self.num_pad: dict[str, Vector] = {
-            '7': Vector(0,0), '8': Vector(1,0), '9': Vector(2,0),
-            '4': Vector(0,1), '5': Vector(1,1), '6': Vector(2,1),
-            '1': Vector(0,2), '2': Vector(1,2), '3': Vector(2,2),
-                              '0': Vector(1,3), 'A': Vector(2,3),
-        }
-        self.num_pad_grid = set(self.num_pad.values())
-        self.dir_pad: dict[str, Vector] = {
-                              '^': Vector(1,0), 'A': Vector(2,0),
-            '<': Vector(0,1), 'v': Vector(1,1), '>': Vector(2,1),
-        }
-        self.dir_pad_grid = set(self.dir_pad.values())
         self.path = []
         self.initial_key = 'A'
         self.press = 'A'
+        self.num_moves = {
+            '0,0': '', '0,1': '^<', '0,2': '^', '0,3': '^>', '0,4': '^^<', '0,5': '^^', '0,6': '^^>', '0,7': '^^^<', '0,8': '^^^', '0,9': '^^^>', '0,A': '>',
+            '1,0': '>v', '1,1': '', '1,2': '>', '1,3': '>>', '1,4': '^', '1,5': '^>', '1,6': '^>>', '1,7': '^^', '1,8': '^^>', '1,9': '^^>>', '1,A': '>>v',
+            '2,0': 'v', '2,1': '<', '2,2': '', '2,3': '>', '2,4': '<^', '2,5': '^', '2,6': '^>', '2,7': '<^^', '2,8': '^^', '2,9': '^^>', '2,A': 'v>',
+            '3,0': '<v', '3,1': '<<', '3,2': '<', '3,3': '', '3,4': '<<^', '3,5': '<^', '3,6': '^', '3,7': '<<^^', '3,8': '<^^', '3,9': '^^', '3,A': 'v',
+            '4,0': '>vv', '4,1': 'v', '4,2': 'v>', '4,3': 'v>>', '4,4': '', '4,5': '>', '4,6': '>>', '4,7': '^', '4,8': '^>', '4,A': '>>vv',
+            '5,0': 'vv', '5,1': '<v', '5,2': 'v', '5,3': 'v>', '5,4': '<', '5,5': '', '5,6': '>', '5,7': '<^', '5,8': '^', '5,9': '^>', '5,A': 'vv>',
+            '6,0': '<vv', '6,1': '<<v', '6,2': '<v', '6,3': 'v', '6,4': '<<', '6,5': '<', '6,6': '', '6,7': '<<^', '6,8': '<^', '6,9': '^', '6,A': 'vv',
+            '7,0': '>vvv', '7,1': 'vv', '7,2': 'vv>', '7,3': 'vv>>', '7,4': 'v', '7,5': 'v>', '7,6': 'v>>', '7,7': '', '7,8': '>', '7,9': '>>', '7,A': '>>vvv',
+            '8,0': 'vvv', '8,1': '<vv', '8,2': 'vv', '8,3': 'vv>', '8,4': '<v', '8,5': 'v', '8,6': 'v>', '8,7': '<', '8,8': '', '8,9': '>', '8,A': 'vvv>',
+            '9,0': '<vvv', '9,1': '<<vv', '9,2': '<vv', '9,3': 'vv', '9,4': '<<v', '9,5': '<v', '9,6': 'v', '9,7': '<<', '9,8': '<', '9,9': '', '9,A': 'vvv',
+            'A,0': '<', 'A,1': '^<<', 'A,2': '<^', 'A,3': '^', 'A,4': '^^<<', 'A,5': '<^^', 'A,6': '^^', 'A,7': '^^^<<', 'A,8': '<^^^', 'A,9': '^^^', 'A,A': '',
+        }
+        self.dir_moves = {
+            '^,A': '>', '^,<': 'v<', '^,v': 'v', '^,>': 'v>', '^,^': '',
+            '>,^': '<^', '>,A': '^', '>,<': '<<', '>,v': '<', '>,>': '',
+            'v,^': '^', 'v,A': '^>', 'v,<': '<', 'v,>': '>', 'v,v': '',
+            '<,^': '>^', '<,A': '>>^', '<,v': '>', '<,>': '>>', '<,<': '',
+            'A,^': '<', 'A,<': 'v<<', 'A,v': '<v', 'A,>': 'v', 'A,A': '',
+        }
 
-    def calculate(self) -> int:
+    def calculate(self, robots=2) -> int:
         complexity = 0
 
         for code in self.codes:
-            res = self.get_num_pad_sequence(code)
-            res = self.get_dir_pad_sequence(res)
-            res = self.get_dir_pad_sequence(res)
-            comp = int(code.strip('A')) * len(res)
-            print(f"dial {code} with {len(res)} steps with comp {comp}: {res}")
-            complexity += int(code.strip('A')) * len(res)
+            num_seq = self.get_sequence(code, 'num')
+            print(f"code {code}")
+            dir_seq = self.get_sequence(num_seq, 'dir', depth=robots)
+
+            comp = int(code.strip('A')) * len(dir_seq)
+            complexity += comp
+            print(f"dial {code} with {len(dir_seq)} steps and complexity of {comp}")
 
         return complexity
 
-    def get_num_pad_sequence(self, code:str) -> str:
+    # @functools.cache
+    def get_sequence(self, code:str, pad:Literal['num', 'dir'], depth=1, mem={}) -> str:
+        if depth == 0:
+            return code
+
+        if code in mem:
+                return mem[code]
+
         path = ''
-        for i, c in enumerate(code):
-            start = self.initial_key if i == 0 else code[i-1]
-            res = self.astar(self.num_pad[start], self.num_pad[c], 'num_pad')
-            res = sorted(res) + [self.press]
-            path += ''.join(res)
+        start = self.initial_key
+        print(f"depth {depth}...", end='\r')
+        for c in code:
+            pos = f"{start},{c}"
+            path += self.get_move(pos, pad)
+            start = c
 
-        return path
+        mem[code] = path
+        return self.get_sequence(path, pad, depth-1, mem)
 
-    def get_dir_pad_sequence(self, code:str) -> str:
-        path = ''
-        for i, c in enumerate(''.join(code)):
-            start = self.initial_key if i == 0 else code[i-1]
-            res = self.astar(self.dir_pad[start], self.dir_pad[c], 'dir_pad')
-            res = sorted(res) + [self.press]
-            path += ''.join(res)
-
-        return path
-
-    def astar(self, start, end: Vector, pad: Literal['num_pad', 'dir_pad']) -> List[str]:
-        costs: dict[Vector, float] = {start: 0}
-        paths: dict[Vector, list[list]] = {start: [[start]]}
-        dirs: dict[Vector, list[str]] = {start: []}
-        to_do: set[Vector] = {start}
-
-        while to_do:
-            current = min(to_do, key=lambda t: costs[t] + self.cost_heuristic(t, end))
-            if current == end:
-                return dirs[end]
-
-            to_do.remove(current)
-            for nbr in self.get_buren(current, pad):
-                new_dist = costs[current] + 1
-                if new_dist < costs.get(nbr, math.inf):
-                    costs[nbr] = new_dist
-                    paths[nbr] = [path + [nbr] for path in paths[current]]
-
-                    direction = self.vec2dir(nbr - current)
-                    dirs[nbr] = dirs[current] + [direction]
-
-                    to_do.add(nbr)
-
-        return []  # Return an empty list if no path is found
-
-    def cost_heuristic(self, node, end: Vector) -> float:
-        # Manhattan Distance
-        return abs(node.x - end.x) + abs(node.y - end.y)
-
-    def get_buren(self, pos: Vector, pad: Literal['num_pad', 'dir_pad']) -> List[Vector]:
-        grid = set(getattr(self, pad).values())
-
-        dirs = [Vector(1,0), Vector(0,1), Vector(-1,0), Vector(0,-1)]
-        bs = []
-        for d in dirs:
-            t = d + pos
-            if t in grid:
-                bs.append(t)
-        return bs
-
-    def dir2vec(self, dir: str) -> Vector:
-        map = {
-            "^": Vector(0, -1),
-            ">": Vector(1, 0),
-            "v": Vector(0, 1),
-            "<": Vector(-1, 0),
-        }
-        return map[dir]
-
-    def vec2dir(self, v: Vector) -> str:
-        pam = {
-            Vector(0, -1): "^",
-            Vector(1, 0): ">",
-            Vector(0, 1): "v",
-            Vector(-1, 0): "<",
-        }
-        return pam[v]
-
-    def render(self, path):
-        grid = ""
-
-        y = 0
-        grid += '+' + ''.join([colored(str(n%10), 'blue') for n in range(self.room.x)]) + "\n"
-        while y < self.room.y:
-            grid += colored(str(y%10), 'blue')
-            x = 0
-            while x < self.room.x:
-                p = Vector(x, y)
-                match p:
-                    case p if p in self.blocks:
-                        grid += '#'
-                    case p if p == self.start:
-                        grid += colored('S', 'yellow', attrs=['bold'])
-                    case p if p == self.end:
-                        grid += colored('E', 'green', attrs=['bold'])
-                    case p if p in path:
-                        # grid += self.path[p]
-                        grid += colored('+', 'red')
-                    case _:
-                        grid += '.'
-                x += 1
-            grid += "\n"
-            y += 1
-        print(grid)
+    # @functools.cache
+    def get_move(self, pos: str, pad:Literal['num', 'dir']) -> str:
+        moves = getattr(self, f"{pad}_moves")
+        return moves[pos] + self.press
 
 def process_input(f: str):
     input = []
@@ -151,20 +75,20 @@ def process_input(f: str):
     return input
 
 if __name__ == "__main__":
-    test_input = process_input("./test-input")
-    test_answer1 = 126384
-    # test_answer2 = Vector(6, 1)
-    inst = Solution(test_input)
-    answ1 = inst.calculate()
-    print("Part1:", answ1 ,answ1 == test_answer1)
-    # print("Part2:", blocker, blocker == test_answer2)
+    # test_input = process_input("./test-input")
+    # test_answer1 = 126384
+    # inst = Solution(test_input)
+    # answ1 = inst.calculate()
+    # print("Part1:", answ1 ,answ1 == test_answer1)
+    # answ2 = inst.calculate(25)
+    # print("Part2:", answ2)
 
-    # input = process_input("./input")
-    # room = Vector(71, 71)
-    # inst = Solution(*input)
-    # cheats = inst.calculate(100)
-    # print("Part 1:", cheats)
-    # # print("Part 2:", blocker)
+    input = process_input("./input")
+    inst = Solution(input)
+    # answ1 = inst.calculate()
+    # print("Part 1:", answ1)
+    answ2 = inst.calculate(25)
+    print("Part 2:", answ2)
 
-    # p1:
+    # p1: 184716
     # p2:
