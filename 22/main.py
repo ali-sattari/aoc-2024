@@ -78,5 +78,3 @@ if __name__ == "__main__":
     print("Part 1:", answ1)
     answ2 = inst.calculate2(2000)
     print("Part 2:", answ2)
-
-    # p2: 1654 too low and 1725 too high
